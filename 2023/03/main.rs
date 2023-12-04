@@ -1,4 +1,5 @@
 use crate::SchematicError::EmptyString;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 fn main() {
@@ -139,42 +140,30 @@ impl Schematic {
                     FindAdjacentValueSearchParam::IsDigit,
                 );
 
-                let mut gear_numbers = vec![];
-                let mut prev_coords: Option<(usize, usize)> = None;
+                let mut found_map = HashMap::new();
 
                 for (digit_row, digit_col, _) in digits.iter() {
-                    if prev_coords != None {
-                        let prev_coords = prev_coords.unwrap();
+                    let (num, key) =
+                        self.find_number_from_digit(digit_row.clone(), digit_col.clone());
 
-                        // skip aligned coords
-                        if prev_coords.0 == digit_row.clone()
-                            && (prev_coords.1 < digit_col.clone()
-                                || digit_col.clone() < prev_coords.1)
-                        {
-                            continue;
-                        }
+                    if found_map.contains_key(&key) {
+                        continue;
                     }
-
-                    prev_coords = Some((digit_row.clone(), digit_col.clone()));
-                    let num = self.find_number_from_digit(digit_row.clone(), digit_col.clone());
-                    gear_numbers.push(num);
+                    found_map.insert(key, num);
                 }
 
-                if gear_numbers.len() < 2 {
+                if found_map.len() < 2 {
                     continue;
                 }
 
-                // check if digits belong to the same number and filter out
-                // find number
-                // multiply numbers
-                numbers.push(gear_numbers.iter().product());
+                numbers.push(found_map.values().product());
             }
         }
 
         numbers
     }
 
-    fn find_number_from_digit(&self, row: usize, column: usize) -> usize {
+    fn find_number_from_digit(&self, row: usize, column: usize) -> (usize, (usize, usize, usize)) {
         // find actual start
         let mut col_start = column;
         if column > 0 {
@@ -212,7 +201,7 @@ impl Schematic {
             }
         }
 
-        create_number_from_digits(digits)
+        (create_number_from_digits(digits), (row, col_start, col_end))
     }
 
     fn has_adjacent_symbol_range(
@@ -390,15 +379,15 @@ $..1
 4*4...2*
 .......2
 ........
-2*......
-11......
-....2...
+2*...111
+11....*.
+....2.11
 ...2*2..
 ....2...";
 
     #[test]
     fn test_parsing_gear_part_example_exhaustive() {
         let schematic = Schematic::from_str(TEST_SCHEMATIC_GEAR_EXHAUSTIVE).expect("should parse");
-        assert_eq!(58, schematic.gear_part_sum());
+        assert_eq!(1279, schematic.gear_part_sum());
     }
 }
