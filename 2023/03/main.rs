@@ -238,36 +238,15 @@ impl Schematic {
         column_end: usize,
         search_value: FindAdjacentValueSearchParam,
     ) -> Vec<(usize, usize, Value)> {
-        let mut values = vec![];
-
-        for col in column_start..=column_end {
-            let found = self.find_adjacent_symbols(row, col, search_value.clone());
-            if found.len() > 0 {
-                values.extend(found);
-            }
-        }
-
-        values
+        (column_start..=column_end)
+            .flat_map(|col| self.find_adjacent_symbols(row, col, search_value.clone()))
+            .collect()
     }
 
     fn get(&self, row: usize, column: usize) -> Option<Value> {
-        if row > self.width || column > self.height {
-            return None;
-        }
-
-        let values_column = self.values.get(row);
-
-        if values_column == None {
-            return None;
-        }
-
-        let values_column = values_column.unwrap();
-
-        if let Some(value) = values_column.get(column) {
-            return Some(value.clone());
-        }
-
-        None
+        self.values
+            .get(row)
+            .and_then(|values_column| values_column.get(column).cloned())
     }
 
     fn find_adjacent_symbols(
@@ -278,32 +257,29 @@ impl Schematic {
     ) -> Vec<(usize, usize, Value)> {
         let mut values = vec![];
 
-        let start_row = if row == 0 { row } else { row - 1 };
+        let start_row = row.saturating_sub(1);
+        let end_row = (row + 1).min(self.height - 1);
+        let start_col = column.saturating_sub(1);
+        let end_col = (column + 1).min(self.width - 1);
 
-        for row_index in start_row..=row + 1 {
-            let start_col = if column == 0 { column } else { column - 1 };
-
-            for col_index in start_col..=column + 1 {
+        for row_index in start_row..=end_row {
+            for col_index in start_col..=end_col {
                 let value = self.get(row_index, col_index);
 
-                if value == None {
-                    continue;
+                if let Some(value) = value {
+                    match search_value {
+                        FindAdjacentValueSearchParam::IsSymbol => {
+                            if value.is_symbol() {
+                                values.push((row_index, col_index, value));
+                            }
+                        }
+                        FindAdjacentValueSearchParam::IsDigit => {
+                            if let Value::Digit(_) = value {
+                                values.push((row_index, col_index, value));
+                            }
+                        }
+                    };
                 }
-
-                let value = value.unwrap();
-
-                match search_value {
-                    FindAdjacentValueSearchParam::IsSymbol => {
-                        if value.is_symbol() {
-                            values.push((row_index, col_index, value));
-                        }
-                    }
-                    FindAdjacentValueSearchParam::IsDigit => {
-                        if let Value::Digit(_) = value {
-                            values.push((row_index, col_index, value));
-                        }
-                    }
-                };
             }
         }
 
@@ -408,5 +384,21 @@ $..1
     fn test_parsing_gear_part_example() {
         let schematic = Schematic::from_str(TEST_SCHEMATIC_GEAR_TEST).expect("should parse");
         assert_eq!(467835, schematic.gear_part_sum());
+    }
+
+    const TEST_SCHEMATIC_GEAR_EXHAUSTIVE: &str = "\
+4*4...2*
+.......2
+........
+2*......
+11......
+....2...
+...2*2..
+....2...";
+
+    #[test]
+    fn test_parsing_gear_part_example_exhaustive() {
+        let schematic = Schematic::from_str(TEST_SCHEMATIC_GEAR_EXHAUSTIVE).expect("should parse");
+        assert_eq!(58, schematic.gear_part_sum());
     }
 }
