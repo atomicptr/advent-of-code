@@ -1,9 +1,10 @@
 use crate::ParseError::InvalidFormat;
-use std::fmt::format;
 use std::str::FromStr;
 
 fn main() {
-    println!("Hello day 4");
+    let input = include_str!("./input.txt");
+    let game = Game::from_str(input).expect("should parse");
+    println!("Part 1) Result: {}", game.total_ppints());
 }
 
 #[derive(Debug)]
@@ -13,6 +14,12 @@ enum ParseError {
 
 struct Game {
     cards: Vec<Card>,
+}
+
+impl Game {
+    fn total_ppints(&self) -> u32 {
+        self.cards.iter().map(|card| card.points()).sum()
+    }
 }
 
 impl FromStr for Game {
@@ -36,6 +43,29 @@ struct Card {
     id: u32,
     winning_numbers: Vec<u32>,
     user_numbers: Vec<u32>,
+}
+
+impl Card {
+    fn user_winning_numbers(&self) -> Vec<u32> {
+        self.user_numbers
+            .iter()
+            .filter(|num| self.winning_numbers.contains(num))
+            .map(|num| num.clone())
+            .collect()
+    }
+
+    fn calculate_points_for_matches(&self, number_matches: u32) -> u32 {
+        match number_matches {
+            0 => 0,
+            1 => 1,
+            num => self.calculate_points_for_matches(num - 1) * 2,
+        }
+    }
+
+    fn points(&self) -> u32 {
+        let matches = self.user_winning_numbers();
+        self.calculate_points_for_matches(matches.len() as u32)
+    }
 }
 
 impl FromStr for Card {
@@ -77,11 +107,6 @@ impl FromStr for Card {
             .map(|num| num.parse().expect("should be a number"))
             .collect();
 
-        println!(
-            "Card {id}: WN: {:?} | UN: {:?}",
-            winning_numbers, user_numbers
-        );
-
         Ok(Card {
             id,
             winning_numbers,
@@ -104,7 +129,16 @@ Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
 Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11";
 
     #[test]
-    fn test_something() {
+    fn test_parse_example() {
         let game = Game::from_str(TEST_EXAMPLE).expect("should exist");
+
+        let test_points = [8, 2, 2, 1, 0, 0];
+        let test_total_points: u32 = test_points.iter().sum();
+
+        for (index, card) in game.cards.iter().enumerate() {
+            assert_eq!(test_points.get(index).unwrap().clone(), card.points());
+        }
+
+        assert_eq!(test_total_points, game.total_ppints());
     }
 }
