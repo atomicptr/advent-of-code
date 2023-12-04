@@ -25,22 +25,12 @@ impl Game {
 
     fn scratch_cards(&self) -> HashMap<u32, u32> {
         let mut cards = HashMap::new();
-
         let mut scratch_cards: Vec<u32> = self.cards.values().map(|card| card.id).collect();
 
-        let mut index = 0;
-
-        while index < scratch_cards.len() {
-            let card_id: u32 = scratch_cards.get(index).unwrap().clone();
+        while let Some(card_id) = scratch_cards.pop() {
             scratch_cards.extend(self.scratch_card_ids_for(card_id.clone()));
-
-            let val = match cards.get(&card_id) {
-                Some(val) => val,
-                None => &0_u32,
-            };
-
-            cards.insert(card_id, val + 1);
-            index += 1;
+            let val = cards.entry(card_id).or_insert(0);
+            *val += 1;
         }
 
         cards
