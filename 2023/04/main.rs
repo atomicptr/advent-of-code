@@ -18,19 +18,72 @@ struct Game {
     cards: HashMap<u32, Card>,
 }
 
+fn merge_hashmap(a: &HashMap<u32, u32>, b: &HashMap<u32, u32>) -> HashMap<u32, u32> {
+    let mut new_hashmap = a.clone();
+
+    for (b_key, b_value) in b.iter() {
+        let val = new_hashmap.entry(b_key.clone()).or_insert(0);
+        *val += b_value;
+    }
+
+    new_hashmap
+}
+
 impl Game {
     fn total_ppints(&self) -> u32 {
         self.cards.values().map(|card| card.points()).sum()
     }
 
     fn scratch_cards(&self) -> HashMap<u32, u32> {
+        let mut cache: HashMap<u32, HashMap<u32, u32>> = HashMap::new();
         let mut cards = HashMap::new();
-        let mut scratch_cards: Vec<u32> = self.cards.values().map(|card| card.id).collect();
 
-        while let Some(card_id) = scratch_cards.pop() {
-            scratch_cards.extend(self.scratch_card_ids_for(card_id.clone()));
-            let val = cards.entry(card_id).or_insert(0);
-            *val += 1;
+        for card_id in self.cards.keys() {
+            let results = if cache.contains_key(card_id) {
+                cache.get(card_id).unwrap()
+            } else {
+                let results = self.scratch_cards_for(card_id.clone(), &mut cache);
+                cache.insert(card_id.clone(), results);
+                cache.get(card_id).unwrap()
+            };
+
+            cards = merge_hashmap(&cards, &results);
+        }
+
+        cards
+    }
+
+    fn scratch_cards_for(
+        &self,
+        id: u32,
+        mut cache: &mut HashMap<u32, HashMap<u32, u32>>,
+    ) -> HashMap<u32, u32> {
+        let mut cards = HashMap::new();
+
+        let card = self.cards.get(&id);
+
+        if card.is_none() {
+            return cards;
+        }
+
+        let card = card.unwrap();
+
+        cards.insert(card.id, 1);
+
+        let count = card.user_winning_numbers().len();
+
+        let new_ids: Vec<u32> = (1..=count).map(|num| id + (num as u32)).collect();
+
+        for new_id in new_ids.iter() {
+            let results = if cache.contains_key(new_id) {
+                cache.get(new_id).unwrap()
+            } else {
+                let results = self.scratch_cards_for(new_id.clone(), &mut cache);
+                cache.insert(new_id.clone(), results);
+                cache.get(new_id).unwrap()
+            };
+
+            cards = merge_hashmap(&cards, &results);
         }
 
         cards
@@ -38,15 +91,6 @@ impl Game {
 
     fn scratch_cards_total(&self) -> u32 {
         self.scratch_cards().values().sum()
-    }
-
-    fn scratch_card_ids_for(&self, id: u32) -> Vec<u32> {
-        if let Some(card) = self.cards.get(&id) {
-            let count = card.user_winning_numbers().len();
-            return (1..=count).map(|num| id + (num as u32)).collect();
-        }
-
-        vec![]
     }
 }
 
